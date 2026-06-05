@@ -106,3 +106,77 @@ function analyzeRegionalTopMetrics() {
 
   });
 }
+
+function createRegionSummary(ss, regions, metric, label) {
+
+  let rows = [];
+
+  regions.forEach(region => {
+
+    const sh = ss.getSheetByName(`${region}_Top10_${metric}`);
+    if (!sh) return;
+
+    const lastRow = sh.getLastRow();
+    if (lastRow < 2) return;
+
+    rows = rows.concat(
+      sh.getRange(2, 1, lastRow - 1, 4).getValues()
+    );
+
+  });
+
+  if (rows.length === 0) {
+    return {
+      title: `${label} Region - ${metric}`,
+      text: `No ${metric.toLowerCase()} data available.`
+    };
+  }
+
+  rows.sort((a, b) => b[2] - a[2]);
+
+  const total = rows.reduce(
+    (sum, row) => sum + (Number(row[2]) || 0),
+    0
+  );
+
+  const top1 = rows[0] || ["", "N/A", 0];
+  const top2 = rows[1] || ["", "N/A", 0];
+
+  const low1 = rows[rows.length - 1] || ["", "N/A", 0];
+  const low2 = rows[rows.length - 2] || ["", "N/A", 0];
+
+  const causeTotals = {};
+
+  rows.forEach(row => {
+
+    const cause = row[3];
+    const value = Number(row[2]) || 0;
+
+    if (!cause) return;
+
+    causeTotals[cause] =
+      (causeTotals[cause] || 0) + value;
+
+  });
+
+  const dominantCauses =
+    Object.entries(causeTotals)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 2)
+      .map(item => item[0])
+      .join(" and ") || "multiple incident types";
+
+  return {
+
+    title: `${label} Region – ${metric} Overview`,
+
+    text:
+`The ${label} region recorded ${total} ${metric.toLowerCase()} cases.
+
+The dominant contributing incident types were ${dominantCauses}.
+
+The highest levels were recorded in ${top1[1]} (${top1[2]}) and ${top2[1]} (${top2[2]}).
+
+The lowest levels were observed in ${low1[1]} (${low1[2]}) and ${low2[1]} (${low2[2]}).`
+  };
+}
